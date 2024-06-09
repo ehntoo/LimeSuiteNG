@@ -1,8 +1,9 @@
 #include "lms7002m_context.h"
 #include "privates.h"
 
-#include <stdbool.h>
-#include <stdint.h>
+// #include <stdbool.h>
+// #include <stdint.h>
+#include <linux/types.h>
 
 const uint16_t chipStateAddr[][2] = {
     { 0x0021, 0x002F }, // LimeLight

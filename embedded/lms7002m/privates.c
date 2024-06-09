@@ -1,59 +1,65 @@
+#include <linux/types.h>
 #include "privates.h"
 
 #include "csr.h"
 #include "limesuiteng/embedded/loglevel.h"
 #include "lms7002m_context.h"
 
-#include <stdarg.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <linux/delay.h>
 
-#ifdef _MSC_VER
-    #include <windows.h>
-#else
-    #include <time.h>
-#endif
+// #include <stdarg.h>
+// #include <stdio.h>
+// #include <stdlib.h>
 
-void lms7002m_log(lms7002m_context* context, lime_LogLevel level, const char* format, ...)
-{
-    if (context->hooks.log == NULL)
-        return;
+// #ifdef _MSC_VER
+//     #include <windows.h>
+// #else
+//     #include <time.h>
+// #endif
 
-    char buff[4096];
+// void lms7002m_log(lms7002m_context* context, lime_LogLevel level, const char* format, ...)
+// {
+//     if (context->hooks.log == NULL)
+//         return;
 
-    va_list args;
-    va_start(args, format);
-    vsnprintf(buff, sizeof(buff), format, args);
-    va_end(args);
+//     char buff[4096];
 
-    context->hooks.log(level, buff, context->hooks.log_userData);
-}
+//     va_list args;
+//     va_start(args, format);
+//     vsnprintf(buff, sizeof(buff), format, args);
+//     va_end(args);
 
-lime_Result lms7002m_report_error(lms7002m_context* context, lime_Result result, const char* format, ...)
-{
-    if (context->hooks.log == NULL)
-        return result;
+//     context->hooks.log(level, buff, context->hooks.log_userData);
+// }
 
-    va_list args;
-    va_start(args, format);
-    lms7002m_log(context, lime_LogLevel_Error, format, args);
-    va_end(args);
+// lime_Result lms7002m_report_error(lms7002m_context* context, lime_Result result, const char* format, ...)
+// {
+//     if (context->hooks.log == NULL)
+//         return result;
 
-    return result;
-}
+//     va_list args;
+//     va_start(args, format);
+//     lms7002m_log(context, lime_LogLevel_Error, format, args);
+//     va_end(args);
 
-void lms7002m_sleep(long timeInMicroseconds)
-{
-#ifdef _MSC_VER
-    Sleep(timeInMicroseconds / 1000);
-#else
-    struct timespec time;
-    time.tv_sec = 0;
-    time.tv_nsec = timeInMicroseconds * 1000;
+//     return result;
+// }
 
-    // POSIX function, non-standard C
-    nanosleep(&time, NULL);
-#endif
+// void lms7002m_sleep(long timeInMicroseconds)
+// {
+// #ifdef _MSC_VER
+//     Sleep(timeInMicroseconds / 1000);
+// #else
+//     struct timespec time;
+//     time.tv_sec = 0;
+//     time.tv_nsec = timeInMicroseconds * 1000;
+
+//     // POSIX function, non-standard C
+//     nanosleep(&time, NULL);
+// #endif
+// }
+void lms7002m_sleep(long timeInMicroseconds) {
+    udelay(timeInMicroseconds);
 }
 
 void lms7002m_spi_write(lms7002m_context* self, uint16_t address, uint16_t value)
@@ -101,7 +107,14 @@ uint8_t lms7002m_minimum_tune_score_index(int tuneScore[], int count)
     int minimum_index = 0;
     for (int i = 1; i < count; ++i)
     {
-        if (abs(tuneScore[i]) < abs(tuneScore[minimum_index]))
+        int absTuneScore = tuneScore[i];
+        if (absTuneScore < 0)
+            absTuneScore = -absTuneScore;
+        int minAbsTuneScore = tuneScore[minimum_index];
+        if (minAbsTuneScore < 0)
+            minAbsTuneScore = -minAbsTuneScore;
+        // if (abs(tuneScore[i]) < abs(tuneScore[minimum_index]))
+        if (absTuneScore < minAbsTuneScore)
         {
             minimum_index = i;
         }

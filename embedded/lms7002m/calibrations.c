@@ -4,9 +4,9 @@
 #include "lms7002m_context.h"
 #include "privates.h"
 
-#include <math.h>
-#include <stdint.h>
-#include <stdlib.h>
+// #include <math.h>
+// #include <stdint.h>
+// #include <stdlib.h>
 
 const uint8_t calibUserBwDivider = 5;
 const float offsetNCO = 0.1e6;
@@ -35,17 +35,17 @@ static uint16_t pow2(const uint8_t power)
 }
 
 ///APPROXIMATE conversion
-static float chip_rssi_to_dbfs(uint32_t rssi)
-{
-    if (rssi == 0)
-        rssi = 1;
-    return 20 * log10((float)(rssi) / maxRSSI);
-}
+// static float chip_rssi_to_dbfs(uint32_t rssi)
+// {
+//     if (rssi == 0)
+//         rssi = 1;
+//     return 20 * log10((float)(rssi) / maxRSSI);
+// }
 
-static uint32_t dbfs_to_chip_rssi(float dBFS)
-{
-    return maxRSSI * pow(10.0, dBFS / 20.0);
-}
+// static uint32_t dbfs_to_chip_rssi(float dBFS)
+// {
+//     return maxRSSI * pow(10.0, dBFS / 20.0);
+// }
 
 static int16_t to_signed(int16_t val, uint8_t msb)
 {
@@ -436,10 +436,20 @@ static void lms7002m_write_analog_dc(lms7002m_context* self, const uint16_t addr
     if (value < 0)
     {
         regValue |= (mask + 1);
-        regValue |= (abs(value + mask) & mask);
+        // regValue |= (abs(value + mask) & mask);
+        int32_t value_sum = value + mask;
+        if (value_sum < 0)
+            value_sum = -value_sum;
+
+        regValue |= (value_sum & mask);
     }
-    else
-        regValue |= (abs(value + mask + 1) & mask);
+    else {
+        // regValue |= (abs(value + mask + 1) & mask);
+        int32_t value_sum = value + mask + 1;
+        if (value_sum < 0)
+            value_sum = -value_sum;
+        regValue |= (value_sum & mask);
+    }
     lms7002m_spi_write(self, addr, regValue);
     lms7002m_spi_write(self, addr, regValue | 0x8000);
 }
@@ -501,7 +511,7 @@ static void lms7002m_calibrate_rx_dc_auto(lms7002m_context* self)
         const int16_t dci = lms7002m_read_analog_dc(self, dcRegAddr);
         const int16_t dcq = lms7002m_read_analog_dc(self, dcRegAddr + 1);
         const uint32_t rssi = lms7002m_get_rssi(self);
-        LOG_D(self, "Rx DC auto   I: %3i, Q: %3i, %3.1f dBFS", dci, dcq, chip_rssi_to_dbfs(rssi));
+        // LOG_D(self, "Rx DC auto   I: %3i, Q: %3i, %3.1f dBFS", dci, dcq, chip_rssi_to_dbfs(rssi));
     }
 
     // Manual adjustments
@@ -514,17 +524,19 @@ static void lms7002m_calibrate_rx_dc_auto(lms7002m_context* self)
         const int16_t dci = lms7002m_read_analog_dc(self, dcRegAddr);
         const int16_t dcq = lms7002m_read_analog_dc(self, dcRegAddr + 1);
         const uint32_t rssi = lms7002m_get_rssi(self);
-        LOG_D(self, "Rx DC manual I: %3i, Q: %3i, %3.1f dBFS", dci, dcq, chip_rssi_to_dbfs(rssi));
+        // LOG_D(self, "Rx DC manual I: %3i, Q: %3i, %3.1f dBFS", dci, dcq, chip_rssi_to_dbfs(rssi));
     }
 
     lms7002m_spi_modify_csr(self, LMS7002M_DC_BYP_RXTSP, 0); // DC_BYP 0
-    LOG_D(self, "RxTSP DC corrector enabled %3.1f dBFS", chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
+    // LOG_D(self, "RxTSP DC corrector enabled %3.1f dBFS", chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
     lms7002m_spi_modify_csr(self, LMS7002M_EN_G_TRF, 1);
 }
 
 static lime_Result lms7002m_check_saturation_rx(lms7002m_context* self, const float bandwidth_Hz, bool extLoopback)
 {
-    const uint16_t target_rssi = dbfs_to_chip_rssi(-10.0);
+    // const uint16_t target_rssi = dbfs_to_chip_rssi(-10.0);
+    // 28492.121718117098
+    const uint16_t target_rssi = 28492;
     uint8_t cg_iamp = (uint8_t)lms7002m_spi_read_csr(self, LMS7002M_CG_IAMP_TBB);
 
     lms7002m_spi_modify_csr(self, LMS7002M_CMIX_SC_RXTSP, 1);
@@ -537,8 +549,8 @@ static lime_Result lms7002m_check_saturation_rx(lms7002m_context* self, const fl
         int8_t g_lossmain = 15;
         lms7002m_spi_modify_csr(self, LMS7002M_LOSS_MAIN_TXPAD_TRF, g_lossmain);
         rssi = lms7002m_get_rssi(self);
-        LOG_D(
-            self, "Initial gains:\tLOSS_MAIN_TXPAD: %2i, CG_IAMP: %2i | %2.3f dbFS", g_lossmain, cg_iamp, chip_rssi_to_dbfs(rssi));
+        // LOG_D(
+        //     self, "Initial gains:\tLOSS_MAIN_TXPAD: %2i, CG_IAMP: %2i | %2.3f dbFS", g_lossmain, cg_iamp, chip_rssi_to_dbfs(rssi));
         while (rssi < target_rssi)
         {
             g_lossmain -= 1;
@@ -553,7 +565,7 @@ static lime_Result lms7002m_check_saturation_rx(lms7002m_context* self, const fl
         uint8_t g_rxloopb_rfe = 2;
         lms7002m_spi_modify_csr(self, LMS7002M_G_RXLOOPB_RFE, g_rxloopb_rfe);
         rssi = lms7002m_get_rssi(self);
-        LOG_D(self, "Initial gains:\tG_RXLOOPB: %2i, CG_IAMP: %2i | %2.3f dBFS", g_rxloopb_rfe, cg_iamp, chip_rssi_to_dbfs(rssi));
+        // LOG_D(self, "Initial gains:\tG_RXLOOPB: %2i, CG_IAMP: %2i | %2.3f dBFS", g_rxloopb_rfe, cg_iamp, chip_rssi_to_dbfs(rssi));
         while (rssi < target_rssi)
         {
             g_rxloopb_rfe += 2;
@@ -564,7 +576,8 @@ static lime_Result lms7002m_check_saturation_rx(lms7002m_context* self, const fl
         }
     }
 
-    while (rssi < dbfs_to_chip_rssi(-27))
+    // while (rssi < dbfs_to_chip_rssi(-27)) == 4024.6191652801767
+    while (rssi < 4025)
     {
         cg_iamp += 2;
         if (cg_iamp > 63 - 6)
@@ -584,35 +597,41 @@ static lime_Result lms7002m_check_saturation_rx(lms7002m_context* self, const fl
 
     if (extLoopback)
     {
-        LOG_D(self,
-            "Adjusted gains:\tLOSS_MAIN_TXPAD: %2i, CG_IAMP: %2i | %2.3f dbFS",
-            lms7002m_spi_read_csr(self, LMS7002M_LOSS_MAIN_TXPAD_TRF),
-            lms7002m_spi_read_csr(self, LMS7002M_CG_IAMP_TBB),
-            chip_rssi_to_dbfs(rssi));
+        // LOG_D(self,
+        //     "Adjusted gains:\tLOSS_MAIN_TXPAD: %2i, CG_IAMP: %2i | %2.3f dbFS",
+        //     lms7002m_spi_read_csr(self, LMS7002M_LOSS_MAIN_TXPAD_TRF),
+        //     lms7002m_spi_read_csr(self, LMS7002M_CG_IAMP_TBB),
+        //     chip_rssi_to_dbfs(rssi));
     }
     else
     {
-        LOG_D(self,
-            "Adjusted gains: G_RXLOOPB: %2i, CG_IAMP: %2i | %2.3f dbFS",
-            lms7002m_spi_read_csr(self, LMS7002M_G_RXLOOPB_RFE),
-            lms7002m_spi_read_csr(self, LMS7002M_CG_IAMP_TBB),
-            chip_rssi_to_dbfs(rssi));
+        // LOG_D(self,
+        //     "Adjusted gains: G_RXLOOPB: %2i, CG_IAMP: %2i | %2.3f dbFS",
+        //     lms7002m_spi_read_csr(self, LMS7002M_G_RXLOOPB_RFE),
+        //     lms7002m_spi_read_csr(self, LMS7002M_CG_IAMP_TBB),
+        //     chip_rssi_to_dbfs(rssi));
     }
 
-    const float signalLevel_dBFS = chip_rssi_to_dbfs(rssi);
-    const float expectedSignalLevel_dBFS = -30.0;
-    if (signalLevel_dBFS < expectedSignalLevel_dBFS)
+    // const float signalLevel_dBFS = chip_rssi_to_dbfs(rssi);
+    // const float expectedSignalLevel_dBFS = -30.0; == 2849.2121718117096
+    const uint16_t expectedSignalLevel_chip_rssi = 2849;
+    // if (signalLevel_dBFS < expectedSignalLevel_dBFS)
+    if (rssi < expectedSignalLevel_chip_rssi)
     {
-        const char* const messageFormat = "Low calibration test signal level (%3.1f dBFS), expected to be more than (%3.1f dBFS)."
+        // const char* const messageFormat = "Low calibration test signal level (%3.1f dBFS), expected to be more than (%3.1f dBFS)."
+        //                                   " Calibration results might be impacted. Try re-calibrating or adjusting the RX gains.";
+        const char* const messageFormat = "Low calibration test signal level (%u rssi), expected to be more than (%u rssi)."
                                           " Calibration results might be impacted. Try re-calibrating or adjusting the RX gains.";
-        if (signalLevel_dBFS < -50.0)
+        // if (signalLevel_dBFS < -50.0) == 284.92121718117096
+        if (rssi < 285)
         {
-            lms7002m_log(self, lime_LogLevel_Error, messageFormat, signalLevel_dBFS, expectedSignalLevel_dBFS);
+            // lms7002m_log(self, lime_LogLevel_Error, messageFormat, signalLevel_dBFS, expectedSignalLevel_dBFS);
+            lms7002m_log(self, lime_LogLevel_Error, messageFormat, rssi, expectedSignalLevel_chip_rssi);
             return lime_Result_Error;
         }
         else
         {
-            lms7002m_log(self, lime_LogLevel_Warning, messageFormat, signalLevel_dBFS, expectedSignalLevel_dBFS);
+            lms7002m_log(self, lime_LogLevel_Warning, messageFormat, rssi, expectedSignalLevel_chip_rssi);
         }
     }
     return lime_Result_Success;
@@ -691,7 +710,7 @@ static void lms7002m_calibrate_iq_imbalance(lms7002m_context* self, bool isTx)
     argsPhase.maxValue = 128;
     argsPhase.minValue = -128;
     lms7002m_binary_search(self, &argsPhase);
-    LOG_D(self, "#0 %s IQCORR: %i, %3.1f dBFS", dirName, argsPhase.result, chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
+    // LOG_D(self, "#0 %s IQCORR: %i, %3.1f dBFS", dirName, argsPhase.result, chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
 
     //coarse gain
     {
@@ -713,13 +732,13 @@ static void lms7002m_calibrate_iq_imbalance(lms7002m_context* self, bool isTx)
     lms7002m_binary_search(self, &argsGain);
 
     const char* const chName = (argsGain.param.address == gcorriAddress ? "I" : "Q");
-    LOG_D(self, "#1 %s GAIN_%s: %i, %3.1f dBFS", dirName, chName, argsGain.result, chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
+    // LOG_D(self, "#1 %s GAIN_%s: %i, %3.1f dBFS", dirName, chName, argsGain.result, chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
 
     argsPhase.maxValue = argsPhase.result + 16;
     argsPhase.minValue = argsPhase.result - 16;
     lms7002m_binary_search(self, &argsPhase);
 
-    LOG_D(self, "#2 %s IQCORR: %i, %3.1f dBFS", dirName, argsPhase.result, chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
+    // LOG_D(self, "#2 %s IQCORR: %i, %3.1f dBFS", dirName, argsPhase.result, chip_rssi_to_dbfs(lms7002m_get_rssi(self)));
 
     lms7002m_spi_write(self, argsGain.param.address, argsGain.result);
     lms7002m_spi_modify(self, argsPhase.param.address, argsPhase.param.msb, argsPhase.param.lsb, argsPhase.result);
@@ -968,7 +987,8 @@ static lime_Result lms7002m_calibrate_tx_setup(lms7002m_context* self, double ba
 
 static lime_Result lms7002m_check_saturation_tx_rx(lms7002m_context* self, double bandwidthRF, bool extLoopback)
 {
-    const uint16_t saturationLevel = dbfs_to_chip_rssi(-12.86);
+    // const uint16_t saturationLevel = dbfs_to_chip_rssi(-12.86); == 20498.627851256355
+    const uint16_t saturationLevel = 20499;
 
     lms7002m_spi_modify_csr(self, LMS7002M_DC_BYP_RXTSP, 0);
     lms7002m_spi_modify_csr(self, LMS7002M_CMIX_BYP_RXTSP, 0);
@@ -987,8 +1007,8 @@ static lime_Result lms7002m_check_saturation_tx_rx(lms7002m_context* self, doubl
     }
 
     uint16_t rssi = lms7002m_get_rssi(self);
-    LOG_D(self, "Receiver saturation search, target level: %i (%2.3f dBFS)", saturationLevel, chip_rssi_to_dbfs(saturationLevel));
-    LOG_D(self, "initial  PGA: %2i, %s: %2i, %3.2f dbFS", g_pga, (extLoopback ? "LNA" : "RXLOOPB"), g_rfe, chip_rssi_to_dbfs(rssi));
+    // LOG_D(self, "Receiver saturation search, target level: %i (%2.3f dBFS)", saturationLevel, chip_rssi_to_dbfs(saturationLevel));
+    // LOG_D(self, "initial  PGA: %2i, %s: %2i, %3.2f dbFS", g_pga, (extLoopback ? "LNA" : "RXLOOPB"), g_rfe, chip_rssi_to_dbfs(rssi));
     while (rssi < saturationLevel)
     {
         if (g_rfe < 15)
@@ -1021,26 +1041,28 @@ static lime_Result lms7002m_check_saturation_tx_rx(lms7002m_context* self, doubl
             rssi_prev = rssi;
         }
     }
-    LOG_D(self,
-        "adjusted PGA: %2i, %s: %2i, %3.2f dBFS",
-        lms7002m_spi_read_csr(self, LMS7002M_G_PGA_RBB),
-        (extLoopback ? "LNA" : "RXLOOPB"),
-        g_rfe,
-        chip_rssi_to_dbfs(rssi));
-    const float signalLevel_dBFS = chip_rssi_to_dbfs(rssi);
-    const float expectedSignalLevel_dBFS = -30.0;
-    if (signalLevel_dBFS < expectedSignalLevel_dBFS)
+    // LOG_D(self,
+    //     "adjusted PGA: %2i, %s: %2i, %3.2f dBFS",
+    //     lms7002m_spi_read_csr(self, LMS7002M_G_PGA_RBB),
+    //     (extLoopback ? "LNA" : "RXLOOPB"),
+    //     g_rfe,
+    //     chip_rssi_to_dbfs(rssi));
+    // const float signalLevel_dBFS = chip_rssi_to_dbfs(rssi);
+    // const float expectedSignalLevel_dBFS = -30.0; == 2849.2121718117096
+    const uint16_t expectedSignalLevel_chip_rssi = 2849;
+    if (rssi < expectedSignalLevel_chip_rssi)
     {
-        const char* const messageFormat = "Low calibration test signal level (%3.1f dBFS), expected to be more than (%3.1f dBFS)."
+        const char* const messageFormat = "Low calibration test signal level (%u RSSI), expected to be more than (%u RSSI)."
                                           " Calibration results might be impacted. Try re-calibrating or adjusting the TX gains.";
-        if (signalLevel_dBFS < -50.0)
+        // if (signalLevel_dBFS < -50.0) == 284.92121718117096
+        if (rssi < 285)
         {
-            lms7002m_log(self, lime_LogLevel_Error, messageFormat, signalLevel_dBFS, expectedSignalLevel_dBFS);
+            lms7002m_log(self, lime_LogLevel_Error, messageFormat, rssi, expectedSignalLevel_chip_rssi);
             return lime_Result_Error;
         }
         else
         {
-            lms7002m_log(self, lime_LogLevel_Warning, messageFormat, signalLevel_dBFS, expectedSignalLevel_dBFS);
+            lms7002m_log(self, lime_LogLevel_Warning, messageFormat, rssi, expectedSignalLevel_chip_rssi);
         }
     }
     lms7002m_spi_modify_csr(self, LMS7002M_CMIX_BYP_RXTSP, 1);
@@ -1136,7 +1158,7 @@ static void lms7002m_calibrate_tx_dc_auto(lms7002m_context* self)
             const int16_t dci = lms7002m_read_analog_dc(self, iparams.param.address);
             const int16_t dcq = lms7002m_read_analog_dc(self, qparams.param.address);
             const uint32_t rssi = lms7002m_get_rssi(self);
-            LOG_D(self, "#%i Tx DC manual I: %4i, Q: %4i, %3.1f dBFS", i, dci, dcq, chip_rssi_to_dbfs(rssi));
+            // LOG_D(self, "#%i Tx DC manual I: %4i, Q: %4i, %3.1f dBFS", i, dci, dcq, chip_rssi_to_dbfs(rssi));
         }
     }
 }
@@ -1292,7 +1314,8 @@ lime_Result lms7002m_calibrate_analog_rssi_dc_offset(lms7002m_context* self)
     lms7002m_spi_modify_csr(self, LMS7002M_RSSIDC_DCO2, 0);
 
     int value = -63;
-    uint8_t wrValue = abs(value);
+    // uint8_t wrValue = abs(value);
+    uint8_t wrValue = 63;
     if (value < 0)
         wrValue |= 0x40;
     lms7002m_spi_modify_csr(self, LMS7002M_RSSIDC_DCO1, wrValue);
@@ -1302,9 +1325,11 @@ lime_Result lms7002m_calibrate_analog_rssi_dc_offset(lms7002m_context* self)
     uint8_t edgesIndex = 0;
     for (value = -63; value < 64; ++value)
     {
-        wrValue = abs(value);
+        // wrValue = abs(value);
         if (value < 0)
-            wrValue |= 0x40;
+            wrValue = (-value) | 0x40;
+        else
+            wrValue = value;
         lms7002m_spi_modify_csr(self, LMS7002M_RSSIDC_DCO1, wrValue);
         lms7002m_sleep(5);
         cmp = lms7002m_spi_read_csr(self, LMS7002M_RSSIDC_CMPSTATUS);
@@ -1325,9 +1350,12 @@ lime_Result lms7002m_calibrate_analog_rssi_dc_offset(lms7002m_context* self)
         return lms7002m_report_error(self, lime_Result_InvalidValue, "%s", "Failed to find value");
     }
     const int8_t found = (edges[0] + edges[1]) / 2;
-    wrValue = abs(found);
+    // wrValue = abs(found);
     if (found < 0)
-        wrValue |= 0x40;
+        wrValue = (-found) | 0x40;
+        // wrValue |= 0x40;
+    else
+        wrValue = found;
     lms7002m_spi_modify_csr(self, LMS7002M_RSSIDC_DCO1, wrValue);
     LOG_D(self, "Found %i", found);
     lms7002m_spi_modify_csr(self, LMS7002M_EN_INSHSW_W_RFE, 0);

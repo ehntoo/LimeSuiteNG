@@ -1,7 +1,7 @@
 #ifndef LMS7002M_CSR_H
 #define LMS7002M_CSR_H
 
-#include <stdint.h>
+// #include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

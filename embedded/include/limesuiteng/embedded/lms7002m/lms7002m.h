@@ -3,8 +3,9 @@
 
 #include "limesuiteng/embedded/result.h"
 
-#include <stdbool.h>
-#include <stdint.h>
+// #include <stdbool.h>
+// #include <stdint.h>
+#include <linux/types.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -134,8 +135,8 @@ lime_Result lms7002m_set_interface_frequency(
 
 lime_Result lms7002m_enable_sxtdd(struct lms7002m_context* self, bool tdd);
 
-lime_Result lms7002m_set_dc_offset(struct lms7002m_context* self, bool isTx, const float I, const float Q);
-lime_Result lms7002m_get_dc_offset(struct lms7002m_context* self, bool isTx, float* const I, float* const Q);
+lime_Result lms7002m_set_dc_offset(struct lms7002m_context* self, bool isTx, const int8_t I, const int8_t Q);
+lime_Result lms7002m_get_dc_offset(struct lms7002m_context* self, bool isTx, int8_t* const I, int8_t* const Q);
 
 lime_Result lms7002m_set_i_q_balance(
     struct lms7002m_context* self, bool isTx, const float phase, const float gainI, const float gainQ);
