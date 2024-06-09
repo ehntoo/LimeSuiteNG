@@ -1757,7 +1757,7 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, int64_t rfBandwidth_Hz)
         powerDowns = 0x9;
         input_ctl_pga_rbb = 0;
     }
-    else if (30e6 <= rfBandwidth_Hz && rfBandwidth_Hz <= rxLpfMax)
+    else if ((30*1000*1000) <= rfBandwidth_Hz && rfBandwidth_Hz <= rxLpfMax)
     {
         powerDowns = 0x5;
         input_ctl_pga_rbb = 1;
