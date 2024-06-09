@@ -309,7 +309,7 @@ lime_Result lms7002m_set_frequency_cgen(lms7002m_context* self, float freq_Hz)
     lms7002m_spi_modify_csr(self, LMS7002M_DIV_OUTCH_CGEN, iHdiv); //DIV_OUTCH_CGEN
 
     LOG_D(self, "INT %d, FRAC %d, DIV_OUTCH_CGEN %d", gINT, gFRAC, iHdiv);
-    LOG_D(self, "VCO %ld Hz, RefClk ld MHz", (long) dFvco, (long) refClk);
+    LOG_D(self, "VCO %ld Hz, RefClk %ld MHz", (long) dFvco, (long) refClk);
 
     if (lms7002m_tune_cgen_vco(self) != lime_Result_Success)
     {
@@ -372,13 +372,13 @@ float lms7002m_get_rbbpga_db(lms7002m_context* self, const enum lms7002m_channel
     return g_pga_rbb - 12;
 }
 
-lime_Result lms7002m_set_rfelna_db(lms7002m_context* self, const float value, const enum lms7002m_channel channel)
+lime_Result lms7002m_set_rfelna_db(lms7002m_context* self, const int value, const enum lms7002m_channel channel)
 {
     const uint8_t savedChannel = lms7002m_get_active_channel(self);
     lms7002m_set_active_channel(self, channel);
 
-    const float gmax = 30;
-    float val = value - gmax;
+    const int gmax = 30;
+    int val = value - gmax;
 
     int g_lna_rfe = 1;
     if (val >= 0)
@@ -415,15 +415,15 @@ lime_Result lms7002m_set_rfelna_db(lms7002m_context* self, const float value, co
     return ret;
 }
 
-float lms7002m_get_rfelna_db(lms7002m_context* self, const enum lms7002m_channel channel)
+int lms7002m_get_rfelna_db(lms7002m_context* self, const enum lms7002m_channel channel)
 {
     const uint8_t savedChannel = lms7002m_get_active_channel(self);
     lms7002m_set_active_channel(self, channel);
 
-    const float gmax = 30;
+    const int gmax = 30;
     uint16_t g_lna_rfe = lms7002m_spi_read_csr(self, LMS7002M_G_LNA_RFE);
 
-    float retval = 0.0;
+    int retval = 0;
     const int value_to_minus[16] = { 0, 30, 27, 24, 21, 18, 15, 12, 9, 6, 5, 4, 3, 2, 1, 0 };
 
     if (g_lna_rfe > 0 && g_lna_rfe < 16)
@@ -1631,7 +1631,7 @@ float lms7002m_get_sample_rate(lms7002m_context* self, bool isTx, enum lms7002m_
 //     return result;
 // }
 
-lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, float rfBandwidth_Hz)
+lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, int64_t rfBandwidth_Hz)
 {
     const int tiaGain = lms7002m_spi_read_csr(self, LMS7002M_G_TIA_RFE);
     if (tiaGain < 1 || tiaGain > 3)
@@ -1659,39 +1659,48 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, float rfBandwidth_Hz)
     lms7002m_spi_modify_csr(self, LMS7002M_RCC_CTL_PGA_RBB, 0x18);
     lms7002m_spi_modify_csr(self, LMS7002M_C_CTL_PGA_RBB, 1);
 
-    const float rxLpfMin = (tiaGain == 1) ? 4e6 : 1.5e6;
-    const float rxLpfMax = 160e6;
+    const int64_t rxLpfMin = (tiaGain == 1) ? ((int64_t)4*1000*1000) : ((int64_t)1500*1000);
+    const int64_t rxLpfMax = ((int64_t)160*1000*1000);
 
     if (rfBandwidth_Hz != 0 && (rfBandwidth_Hz < rxLpfMin || rfBandwidth_Hz > rxLpfMax))
     {
         lms7002m_log(self,
             lime_LogLevel_Warning,
-            "Requested RxLPF(%s) is out of range [%s - %s]. Clamping to valid range.",
+            "Requested RxLPF(%lld) is out of range [%lld - %lld]. Clamping to valid range.",
             rfBandwidth_Hz,
             rxLpfMin,
             rxLpfMax);
-        rfBandwidth_Hz = clamp_float(rfBandwidth_Hz, rxLpfMin, rxLpfMax);
+        // rfBandwidth_Hz = clamp_float(rfBandwidth_Hz, rxLpfMin, rxLpfMax);
+        if (rfBandwidth_Hz < rxLpfMin) rfBandwidth_Hz = rxLpfMin;
+        else if (rfBandwidth_Hz > rxLpfMax) rfBandwidth_Hz = rxLpfMax;
     }
 
-    const float bandwidth_MHz = rfBandwidth_Hz / 1e6;
+    // const float bandwidth_MHz = rfBandwidth_Hz / 1e6;
 
     uint16_t cfb_tia_rfe = 0;
     if (tiaGain == 1)
-        cfb_tia_rfe = 120 * 45 / (bandwidth_MHz / 2 / 1.5) - 15;
+        // cfb_tia_rfe = 120 * 45 / (bandwidth_MHz / 2 / 1.5) - 15;
+        cfb_tia_rfe = 120ll * 45 * 3 * 1000 * 1000 / (rfBandwidth_Hz) - 15;
     else
-        cfb_tia_rfe = 120 * 14 / (bandwidth_MHz / 2 / 1.5) - 10;
+        // cfb_tia_rfe = 120 * 14 / (bandwidth_MHz / 2 / 1.5) - 10;
+        // 120*14/(5/2/1.5)-10 = 998
+        cfb_tia_rfe = 120ll * 14 * 3 * 1000 * 1000 / (rfBandwidth_Hz) - 10;
     cfb_tia_rfe = clamp_uint(cfb_tia_rfe, 0, 4095);
 
     uint16_t rcomp_tia_rfe = clamp_uint(15 - cfb_tia_rfe * 2 / 100, 0, 15);
     uint16_t ccomp_tia_rfe = clamp_uint((cfb_tia_rfe / 100) + (tiaGain == 1 ? 1 : 0), 0, 15);
 
-    uint16_t c_ctl_lpfl_rbb = clamp_uint(120 * 18 / (bandwidth_MHz / 2 / 0.75) - 103, 0, 2047);
-    const uint16_t c_ctl_lpfh_rbb = clamp_uint(120 * 50 / (bandwidth_MHz / 2 / 0.75) - 50, 0, 255);
+    // uint16_t c_ctl_lpfl_rbb = clamp_uint(120 * 18 / (bandwidth_MHz / 2 / 0.75) - 103, 0, 2047);
+    // (120*18)/(1/2/0.75) = 3240
+    uint16_t c_ctl_lpfl_rbb = clamp_uint(120ll * 18 * 3000000 / (rfBandwidth_Hz * 2) - 103, 0, 2047);
+    // 120*18*3000000/(1000000*2) = 3240
+    // const uint16_t c_ctl_lpfh_rbb = clamp_uint(120 * 50 / (bandwidth_MHz / 2 / 0.75) - 50, 0, 255);
+    const uint16_t c_ctl_lpfh_rbb = clamp_uint(120ll * 50 * 3000000 / (rfBandwidth_Hz * 2) - 50, 0, 255);
 
     lms7002m_log(self,
         lime_LogLevel_Debug,
-        "RxLPF(%ld): TIA_C=%i, TIA_RCOMP=%i, TIA_CCOMP=%i, RX_L_C=%i, RX_H_C=%i\n",
-        (long)rfBandwidth_Hz,
+        "RxLPF(%lld): TIA_C=%i, TIA_RCOMP=%i, TIA_CCOMP=%i, RX_L_C=%i, RX_H_C=%i\n",
+        rfBandwidth_Hz,
         cfb_tia_rfe,
         rcomp_tia_rfe,
         ccomp_tia_rfe,
@@ -1701,18 +1710,19 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, float rfBandwidth_Hz)
     uint16_t input_ctl_pga_rbb = 4;
     uint16_t powerDowns = 0xD; // 0x0115[3:0]
 
-    const float ifbw = bandwidth_MHz / 2 / 0.75;
+    // const float ifbw = bandwidth_MHz / 2 / 0.75;
+    const int64_t ifbw = rfBandwidth_Hz * 2 / 3;
 
     uint16_t rcc_ctl_lpfl_rbb = 0;
-    if (ifbw >= 20)
+    if (ifbw >= 20*1000*1000)
         rcc_ctl_lpfl_rbb = 5;
-    else if (ifbw >= 15)
+    else if (ifbw >= 15*1000*1000)
         rcc_ctl_lpfl_rbb = 4;
-    else if (ifbw >= 10)
+    else if (ifbw >= 10*1000*1000)
         rcc_ctl_lpfl_rbb = 3;
-    else if (ifbw >= 5)
+    else if (ifbw >= 5*1000*1000)
         rcc_ctl_lpfl_rbb = 2;
-    else if (ifbw >= 3)
+    else if (ifbw >= 3*1000*1000)
         rcc_ctl_lpfl_rbb = 1;
 
     if (rfBandwidth_Hz <= 0) // LPF bypass
@@ -1724,7 +1734,7 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, float rfBandwidth_Hz)
     else if (rfBandwidth_Hz < rxLpfMin)
     {
         lms7002m_log(
-            self, lime_LogLevel_Warning, "RxLPF(%ld) frequency too low. Clamping to %ld Hz.", (long)rfBandwidth_Hz, (long)rxLpfMin);
+            self, lime_LogLevel_Warning, "RxLPF(%lld) frequency too low. Clamping to %lld Hz.", rfBandwidth_Hz, rxLpfMin);
         if (tiaGain == 1)
         {
             cfb_tia_rfe = 4035;
@@ -1742,7 +1752,7 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, float rfBandwidth_Hz)
         powerDowns = 0x9;
         input_ctl_pga_rbb = 0;
     }
-    else if (rxLpfMin <= rfBandwidth_Hz && rfBandwidth_Hz <= 30e6)
+    else if (rxLpfMin <= rfBandwidth_Hz && rfBandwidth_Hz <= (30*1000*1000))
     {
         powerDowns = 0x9;
         input_ctl_pga_rbb = 0;
@@ -1762,7 +1772,8 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, float rfBandwidth_Hz)
     lms7002m_spi_modify_csr(self, LMS7002M_C_CTL_LPFH_RBB, c_ctl_lpfh_rbb);
     lms7002m_spi_modify_csr(self, LMS7002M_RCC_CTL_LPFL_RBB, rcc_ctl_lpfl_rbb);
 
-    const uint16_t rcc_ctl_lpfh_rbb = clamp_float(ifbw / 10 - 2, 0.0, 7.0);
+    // const uint16_t rcc_ctl_lpfh_rbb = clamp_float(ifbw / 10 - 2, 0.0, 7.0);
+    const uint16_t rcc_ctl_lpfh_rbb = clamp_int(ifbw / (10*1000*1000) - 2, 0, 7);
     lms7002m_spi_modify_csr(self, LMS7002M_RCC_CTL_LPFH_RBB, rcc_ctl_lpfh_rbb);
 
     return lime_Result_Success;

@@ -80,8 +80,8 @@ float lms7002m_get_frequency_cgen(struct lms7002m_context* self);
 lime_Result lms7002m_set_rbbpga_db(struct lms7002m_context* self, const float value, const enum lms7002m_channel channel);
 float lms7002m_get_rbbpga_db(struct lms7002m_context* self, const enum lms7002m_channel channel);
 
-lime_Result lms7002m_set_rfelna_db(struct lms7002m_context* self, const float value, const enum lms7002m_channel channel);
-float lms7002m_get_rfelna_db(struct lms7002m_context* self, const enum lms7002m_channel channel);
+lime_Result lms7002m_set_rfelna_db(struct lms7002m_context* self, const int value, const enum lms7002m_channel channel);
+int lms7002m_get_rfelna_db(struct lms7002m_context* self, const enum lms7002m_channel channel);
 
 lime_Result lms7002m_set_rfe_loopback_lna_db(struct lms7002m_context* self, const float gain, const enum lms7002m_channel channel);
 float lms7002m_get_rfe_loopback_lna_db(struct lms7002m_context* self, const enum lms7002m_channel channel);
@@ -153,8 +153,8 @@ float lms7002m_get_sample_rate(struct lms7002m_context* self, bool isTx, enum lm
 lime_Result lms7002m_set_gfir_filter(
     struct lms7002m_context* self, bool isTx, enum lms7002m_channel ch, bool enabled, float bandwidth);
 
-lime_Result lms7002m_set_rx_lpf(struct lms7002m_context* self, float rfBandwidth_Hz);
-lime_Result lms7002m_set_tx_lpf(struct lms7002m_context* self, float rfBandwidth_Hz);
+lime_Result lms7002m_set_rx_lpf(struct lms7002m_context* self, int64_t rfBandwidth_Hz);
+lime_Result lms7002m_set_tx_lpf(struct lms7002m_context* self, int64_t rfBandwidth_Hz);
 
 int16_t lms7002m_read_analog_dc(struct lms7002m_context* self, const uint16_t addr);
 
