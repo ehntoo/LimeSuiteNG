@@ -973,15 +973,15 @@ lime_Result lms7002m_set_frequency_sx(lms7002m_context* self, bool isTx, uint64_
     const uint64_t m_dThrF = 5500ll*1000*1000; //threshold to enable additional divider
     const uint64_t divider = refClk_Hz * (1 + (VCOfreq > m_dThrF));
 
-    const uint16_t integerPart = (uint16_t)(VCOfreq / divider - 4);
-    const uint32_t fractionalPart = (VCOfreq - ((integerPart + 4) * divider)) * 1048576;
+    const uint16_t integerPart = (uint16_t)(VCOfreq / divider);
+    const uint32_t fractionalPart = (VCOfreq - (integerPart * divider)) * 1048576 / divider;
     // const uint32_t fractionalPart = (uint32_t)((VCOfreq / divider - (uint32_t)(VCOfreq / divider)) * 1048576);
 
     const uint8_t savedChannel = lms7002m_get_active_channel(self);
     lms7002m_set_active_channel(self, isTx ? LMS7002M_CHANNEL_SXT : LMS7002M_CHANNEL_SXR);
 
     lms7002m_spi_modify_csr(self, LMS7002M_EN_INTONLY_SDM, 0);
-    lms7002m_spi_modify_csr(self, LMS7002M_INT_SDM, integerPart); //INT_SDM
+    lms7002m_spi_modify_csr(self, LMS7002M_INT_SDM, integerPart - 4); //INT_SDM
     lms7002m_spi_modify(self, 0x011D, 15, 0, fractionalPart & 0xFFFF); //FRAC_SDM[15:0]
     lms7002m_spi_modify(self, 0x011E, 3, 0, (fractionalPart >> 16)); //FRAC_SDM[19:16]
     lms7002m_spi_modify_csr(self, LMS7002M_DIV_LOCH, div_loch); //DIV_LOCH
