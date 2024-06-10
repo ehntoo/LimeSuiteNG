@@ -60,8 +60,8 @@ typedef struct lms7002m_hooks {
 struct lms7002m_context* lms7002m_create(const lms7002m_hooks* hooks);
 void lms7002m_destroy(struct lms7002m_context* context);
 
-float lms7002m_get_reference_clock(struct lms7002m_context* context);
-lime_Result lms7002m_set_reference_clock(struct lms7002m_context* context, float frequency_Hz);
+uint64_t lms7002m_get_reference_clock(struct lms7002m_context* context);
+lime_Result lms7002m_set_reference_clock(struct lms7002m_context* context, uint64_t frequency_Hz);
 
 lime_Result lms7002m_enable_channel(
     struct lms7002m_context* self, const bool isTx, const enum lms7002m_channel channel, const bool enable);
@@ -109,8 +109,8 @@ bool lms7002m_get_sx_locked(struct lms7002m_context* self, bool isTx);
 
 lime_Result lms7002m_tune_vco(struct lms7002m_context* self, enum lms7002m_vco_type module);
 
-lime_Result lms7002m_set_frequency_sx(struct lms7002m_context* self, bool isTx, float freq_Hz);
-float lms7002m_get_frequency_sx(struct lms7002m_context* self, bool isTx);
+lime_Result lms7002m_set_frequency_sx(struct lms7002m_context* self, bool isTx, uint64_t freq_Hz);
+uint64_t lms7002m_get_frequency_sx(struct lms7002m_context* self, bool isTx);
 
 lime_Result lms7002m_set_nco_frequency(struct lms7002m_context* self, bool isTx, const uint8_t index, float freq_Hz);
 float lms7002m_get_nco_frequency(struct lms7002m_context* self, bool isTx, const uint8_t index);
