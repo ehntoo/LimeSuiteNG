@@ -1642,6 +1642,8 @@ lime_Result lms7002m_set_rx_lpf(lms7002m_context* self, int64_t rfBandwidth_Hz)
             rxLpfMax);
         if (rfBandwidth_Hz < rxLpfMin) rfBandwidth_Hz = rxLpfMin;
         else if (rfBandwidth_Hz > rxLpfMax) rfBandwidth_Hz = rxLpfMax;
+    } else if (rfBandwidth_Hz <= 0) {
+        rfBandwidth_Hz = -1;
     }
 
     uint16_t cfb_tia_rfe = 0;
